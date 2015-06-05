@@ -29,10 +29,10 @@ foreach my $mechanism (@mechanisms) {
                 foreach my $new_spc (@tagged_species) {
                     my $tracer = $mecca->tracer($new_spc);
                     next unless (defined $tracer);
-                    $data{$run}{$spc} += $tracer;
+                    $data{$mechanism}{$run}{$spc} += $tracer;
                 }
             } else {
-                $data{$run}{$spc} += $mecca->tracer($spc);
+                $data{$mechanism}{$run}{$spc} += $mecca->tracer($spc);
             }
         }
     }
@@ -48,17 +48,20 @@ $R->run(q` library(ggplot2) `,
 $R->set('Time', [ map { $_ } $time->dog ]);
 $R->run(q` d = data.frame() `);
 
-foreach my $run (sort keys %data) {
-    $R->set('run', $run);
-    $R->run(q` pre = data.frame(Time, Run = rep(run, length(Time))) `);
-    foreach my $spc (sort keys %{$data{$run}}) {
-        $R->set('spc', $spc);
-        $R->set('mixing.ratio', [ map { $_ } $data{$run}{$spc}->dog ]);
-        $R->run(q` pre[spc] = mixing.ratio `);
+foreach my $mechanism (sort keys %data) {
+    $R->set('mechanism', $mechanism);
+    foreach my $run (sort keys %{$data{$mechanism}}) {
+        $R->set('run', $run);
+        $R->run(q` pre = data.frame(Time, Run = rep(run, length(Time))) `);
+        foreach my $spc (sort keys %{$data{$mechanism}{$run}}) {
+            $R->set('spc', $spc);
+            $R->set('mixing.ratio', [ map { $_ } $data{$mechanism}{$run}{$spc}->dog ]);
+            $R->run(q` pre[spc] = mixing.ratio `);
+        }
+        $R->run(q` pre = gather(pre, Species, Mixing.Ratio, -Time, -Run) `,
+                q` d = rbind(d, pre) `,
+        );
     }
-    $R->run(q` pre = gather(pre, Species, Mixing.Ratio, -Time, -Run) `,
-            q` d = rbind(d, pre) `,
-    );
 }
 
 $R->run(q` my.colours = c("VOC" = "#0352cb", "old" = "#ef6638") `);
