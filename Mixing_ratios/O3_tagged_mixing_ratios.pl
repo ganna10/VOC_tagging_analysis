@@ -1,6 +1,7 @@
 #! /usr/bin/env perl
 # Time series of all tagged O3 mixing ratios stacked to give total O3
 # Version 0: Jane Coates 5/6/2015
+# Version 1: Jane Coates 8/6/2015 allocating initial CO and O3 separately and more general grouping of emitted VOC
 
 use strict;
 use diagnostics;
@@ -64,8 +65,8 @@ foreach my $mechanism (sort keys %data) {
     );
 }
 
-$R->run(q` d$VOC = factor(d$VOC, levels = c("INI", "XTR", "Methane", "Ethane", "Propane", "Butane", "2-Methylpropane", "Pentane", "2-Methylbutane", "Hexane", "Heptane", "Octane", "Ethene", "Propene", "Butene", "2-Methylpropene", "Isoprene", "Benzene", "Toluene", "m-Xylene", "o-Xylene", "p-Xylene", "Ethylbenzene")) `,
-        q` my.colours = c( "Ethane" = "#696537", "Propane" = "#f9c500", "Butane" = "#76afca", "2-Methylpropane" = "#dc3522", "Pentane" = "#8c6238", "2-Methylbutane" = "#9bb08f", "Hexane" = "#8b1537", "Heptane" = "#ba8b01", "Octane" = "#0352cb", "Ethene" = "#86b650", "Propene" = "#6c254f", "Butene" = "#ee6738", "2-Methylpropene" = "#58691b", "Isoprene" = "#8ed6d5", "Benzene" = "#1c3e3d", "Toluene" = "#c65d6c", "m-Xylene" = "#888a87", "o-Xylene" = "#0e5c28", "p-Xylene" = "#b569b3", "Ethylbenzene" = "#2c9def", "Methane" = "#000000", "INI" = "#c9a415", "XTR" = "#f3aa7f" ) `,
+$R->run(q` d$VOC = factor(d$VOC, levels = c("INI", "XTR", "CO", "Methane", "Ethane", "Propane", "Butane", "2-Methylpropane", "Pentane", "2-Methylbutane", "Hexane", "Heptane", "Octane", "Ethene", "Propene", "Butene", "2-Methylpropene", "Isoprene", "Benzene", "Toluene", "m-Xylene", "o-Xylene", "p-Xylene", "Ethylbenzene")) `,
+        q` my.colours = c( "Ethane" = "#696537", "Propane" = "#f9c500", "Butane" = "#76afca", "2-Methylpropane" = "#dc3522", "Pentane" = "#8c6238", "2-Methylbutane" = "#9bb08f", "Hexane" = "#8b1537", "Heptane" = "#ba8b01", "Octane" = "#0352cb", "Ethene" = "#86b650", "Propene" = "#6c254f", "Butene" = "#ee6738", "2-Methylpropene" = "#58691b", "Isoprene" = "#8ed6d5", "Benzene" = "#1c3e3d", "Toluene" = "#c65d6c", "m-Xylene" = "#888a87", "o-Xylene" = "#0e5c28", "p-Xylene" = "#b569b3", "Ethylbenzene" = "#2c9def", "Methane" = "#000000", "INI" = "#c9a415", "XTR" = "#f3aa7f", "CO" = "#d94a80" ) `,
 );
 
 $R->run(q` p = ggplot(d, aes(x = Time, y = Mixing.Ratio, fill = VOC, order = VOC)) `,
@@ -169,7 +170,7 @@ sub get_voc_name {
         $VOC = "Ethylbenzene";
     } elsif ($spc eq "CH4") {
         $VOC = "Methane";
-    } elsif ($spc eq "XTR" or $spc eq "INI") {
+    } elsif ($spc eq "XTR" or $spc eq "INI" or "CO") {
         $VOC = $spc;
     } else {
         print "No mapping for $spc\n";
