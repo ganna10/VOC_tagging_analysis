@@ -18,9 +18,7 @@ my %category_mapping = (
                     TOLUENE => [ '0.166 BENZENE', '0.478 TOLUENE_M', '0.073 EBENZ', '0.142 MXYL', '0.069 OXYL', '0.073 PXYL' ],
                 }
 );
-my (%families, %weights, %data);
-$families{"HO2x"} = [ qw( HO2_X HO2NO2_X NO2HO2_X ) ];
-### here - need to get the full tagged family species
+my (%families, %weights, %production, %consumption);
 
 my $mecca = MECCA->new("$base/MOZART-4_VOC_tagged/boxmodel");
 my $ntime = $mecca->time->nelem;
@@ -34,9 +32,11 @@ foreach my $mechanism (@mechanisms) {
     my $kpp = KPP->new("$dir/gas.eqn");
     my $RO2_file = "$dir/RO2_species.txt";
     my @no2_reservoirs = get_no2_reservoirs($kpp, $RO2_file);
-    $families{"Ox"} = [ qw( O3 O O1D NO2 NO3 N2O5 HO2 HO2NO2 ), @no2_reservoirs ];
-    $weights{"Ox"} = { NO3 => 2, N2O5 => 3 };
-    $data{$mechanism} = get_data($mecca, $kpp);
+    my @tagged_no2_reservoirs = grep { $_ .= "_X" } @no2_reservoirs;
+    my $spc_file = "$dir/gas.spc";
+    $families{"Ox"} = [ qw( O3_X O_X O1D_X NO2_X NO3_X NO2NO3_X HO2_X HO2NO2_X ), @tagged_no2_reservoirs ];
+    $weights{"Ox"} = { NO3_X => 2, NO2NO3_X => 3 };
+    ($production{$mechanism}, $consumption{$mechanism}) = get_data($mecca, $kpp, $spc_file);
 }
 
 sub remove_common_processes {
@@ -93,30 +93,74 @@ sub get_no2_reservoirs { #get species that are produced when radical species rea
     return @no2_reservoirs;
 } 
 
+sub get_tagged_species {
+    my  ($file, $family) = @_;
+    open my $spc_in, '<:encoding(utf-8)', $file or die $!;
+    my @lines = <$spc_in>;
+    close $spc_in;
+    my @tagged_species;
+    if (exists $families{$family}) {
+        foreach my $spc (@{$families{$family}}) {
+            foreach my $line (@lines) {
+                next unless ($line =~ /^${spc}_/);
+                my ($tagged, $rest) = split / = /, $line;
+                push @tagged_species, $tagged;
+            }
+        }
+    } else {
+        print "No family for $family\n";
+    }
+    return \@tagged_species;
+}
+
 sub get_data {
-    my ($mecca, $kpp) = @_;
+    my ($mecca, $kpp, $spc_file) = @_;
 
     my (%production_rates, %consumption_rates);
-    foreach my $species (qw( Ox HO2x)) {
-        my ($producers, $producer_yields, $consumer, $consumer_yields);
-        if (exists $families{$species}) {
-            $kpp->family({
-                    name    => $species,
-                    members => $families{$species},
-                    weights => $weights{$species},
-            });
-            $producers = $kpp->producing($species);
-            $producer_yields = $kpp->effect_on($species, $producers);
-            $consumers = $kpp->consuming($species);
-            $consumer_yields = $kpp->effect_on($species, $consumers);
-            print "No consumers for $species\n" if (@$consumers == 0);
-            print "No producers for $species\n" if (@$producers == 0);
-        } else {
-            print "No family for $species\n";
-        }
+    my $species = "Ox";
+    $families{$species} = get_tagged_species($spc_file, $species);
+    my ($producers, $producer_yields, $consumers, $consumer_yields);
+    $kpp->family({
+            name    => $species,
+            members => $families{$species},
+            weights => $weights{$species},
+    });
+    $producers = $kpp->producing($species);
+    $producer_yields = $kpp->effect_on($species, $producers);
+    $consumers = $kpp->consuming($species);
+    $consumer_yields = $kpp->effect_on($species, $consumers);
+    print "No consumers for $species\n" if (@$consumers == 0);
+    print "No producers for $species\n" if (@$producers == 0);
 
-        for (0..$#$producers) {
-            my $reaction = $producers->[$_];
-        }
+    for (0..$#$producers) {
+        my $reaction = $producers->[$_];
+        my $reaction_number = $kpp->reaction_number($reaction);
+        my $rate = $mecca->rate($reaction_number) * $producer_yields->[$_];
+        next if ($rate->sum == 0);
+        my ($number, $tag, $next) = split /_/, $reaction;
+        my $label;
+        if (defined $next) {
+            $label = $next;
+        } else {
+            $label = $tag;
+        } 
+        $production_rates{$label} = $rate(1:$ntime-2);
     }
+
+    for (0..$#$consumers) {
+        my $reaction = $consumers->[$_];
+        my $reaction_number = $kpp->reaction_number($reaction);
+        my $rate = $mecca->rate($reaction_number) * $consumer_yields->[$_];
+        next if ($rate->sum == 0);
+        my ($number, $tag, $next) = split /_/, $reaction;
+        my $label;
+        if (defined $next) {
+            $label = $next;
+        } else {
+            $label = $tag;
+        } 
+        $consumption_rates{$label} = $rate(1:$ntime-2);
+    }
+    remove_common_processes(\%production_rates, \%consumption_rates);
+    return (\%production_rates, \%consumption_rates);
 }
