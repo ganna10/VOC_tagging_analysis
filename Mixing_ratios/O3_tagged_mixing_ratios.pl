@@ -37,7 +37,26 @@ foreach my $mechanism (@mechanisms) {
         my ($base, $tag) = split /_X_/, $spc;
         my $mixing_ratio = $mecca->tracer($spc);
         $mixing_ratio = $mixing_ratio(1:$ntime-2);
-        $data{$mechanism}{$tag} = get_contributions($tag, $mechanism, $mixing_ratio);
+        $data{$mechanism}{$tag} = $mixing_ratio;
+        #$data{$mechanism}{$tag} = get_contributions($tag, $mechanism, $mixing_ratio); ## use to allocate the MOZART species to individual VOC
+    }
+}
+
+foreach my $mechanism (keys %data) { #allocate MOZART species to Functional Groups
+    foreach my $spc (keys %{$data{$mechanism}}) {
+        if ($spc eq "C2H6" or $spc eq "C3H8" or $spc eq "BIGALK") {
+            $data{$mechanism}{"Alkanes"} += $data{$mechanism}{$spc};
+            delete $data{$mechanism}{$spc};
+        } elsif ($spc eq "C2H4" or $spc eq "C3H6" or $spc eq "BIGENE") {
+            $data{$mechanism}{"Alkenes"} += $data{$mechanism}{$spc};
+            delete $data{$mechanism}{$spc};
+        } elsif ($spc eq "TOLUENE") {
+            $data{$mechanism}{"Aromatics"} += $data{$mechanism}{$spc};
+            delete $data{$mechanism}{$spc};
+        } elsif ($spc eq "ISOP") {
+            $data{$mechanism}{"Isoprene"} += $data{$mechanism}{$spc};
+            delete $data{$mechanism}{$spc};
+        }
     }
 }
 
@@ -53,20 +72,21 @@ $R->run(q` d = data.frame() `);
 foreach my $mechanism (sort keys %data) {
     $R->set('mechanism', $mechanism);
     $R->run(q` pre = data.frame(Time) `);
-    foreach my $tag (sort keys %{$data{$mechanism}}) {
-        foreach my $voc (sort keys %{$data{$mechanism}{$tag}}) {
-            $R->set('voc', $voc);
-            $R->set('mixing.ratio', [ map { $_ } $data{$mechanism}{$tag}{$voc}->dog ]);
-            $R->run(q` pre[voc] = mixing.ratio `);
-        }
+    foreach my $voc (sort keys %{$data{$mechanism}}) {
+        $R->set('voc', $voc);
+        $R->set('mixing.ratio', [ map { $_ } $data{$mechanism}{$voc}->dog ]);
+        $R->run(q` pre[voc] = mixing.ratio `);
     }
     $R->run(q` pre = gather(pre, VOC, Mixing.Ratio, -Time) `,
             q` d = rbind(d, pre) `,
     );
 }
 
-$R->run(q` d$VOC = factor(d$VOC, levels = c("INI", "XTR", "CO", "Methane", "Ethane", "Propane", "Butane", "2-Methylpropane", "Pentane", "2-Methylbutane", "Hexane", "Heptane", "Octane", "Ethene", "Propene", "Butene", "2-Methylpropene", "Isoprene", "Benzene", "Toluene", "m-Xylene", "o-Xylene", "p-Xylene", "Ethylbenzene")) `,
-        q` my.colours = c( "Ethane" = "#696537", "Propane" = "#f9c500", "Butane" = "#76afca", "2-Methylpropane" = "#dc3522", "Pentane" = "#8c6238", "2-Methylbutane" = "#9bb08f", "Hexane" = "#8b1537", "Heptane" = "#ba8b01", "Octane" = "#0352cb", "Ethene" = "#86b650", "Propene" = "#6c254f", "Butene" = "#ee6738", "2-Methylpropene" = "#58691b", "Isoprene" = "#8ed6d5", "Benzene" = "#1c3e3d", "Toluene" = "#c65d6c", "m-Xylene" = "#888a87", "o-Xylene" = "#0e5c28", "p-Xylene" = "#b569b3", "Ethylbenzene" = "#2c9def", "Methane" = "#000000", "INI" = "#c9a415", "XTR" = "#f3aa7f", "CO" = "#d94a80" ) `,
+#$R->run(q` d$VOC = factor(d$VOC, levels = c("INI", "XTR", "CO", "Methane", "Ethane", "Propane", "Butane", "2-Methylpropane", "Pentane", "2-Methylbutane", "Hexane", "Heptane", "Octane", "Ethene", "Propene", "Butene", "2-Methylpropene", "Isoprene", "Benzene", "Toluene", "m-Xylene", "o-Xylene", "p-Xylene", "Ethylbenzene")) `,
+#        q` my.colours = c( "Ethane" = "#696537", "Propane" = "#f9c500", "Butane" = "#76afca", "2-Methylpropane" = "#dc3522", "Pentane" = "#8c6238", "2-Methylbutane" = "#9bb08f", "Hexane" = "#8b1537", "Heptane" = "#ba8b01", "Octane" = "#0352cb", "Ethene" = "#86b650", "Propene" = "#6c254f", "Butene" = "#ee6738", "2-Methylpropene" = "#58691b", "Isoprene" = "#8ed6d5", "Benzene" = "#1c3e3d", "Toluene" = "#c65d6c", "m-Xylene" = "#888a87", "o-Xylene" = "#0e5c28", "p-Xylene" = "#b569b3", "Ethylbenzene" = "#2c9def", "Methane" = "#000000", "INI" = "#c9a415", "XTR" = "#f3aa7f", "CO" = "#d94a80" ) `,
+#);
+$R->run(q` d$VOC = factor(d$VOC, levels = c("INI", "XTR", "CO", "CH4", "Alkanes", "Alkenes", "Isoprene", "Aromatics")) `,
+        q` my.colours = c("INI" = "#6c254f", "XTR" = "#f9c500", "CO" = "#0e5c28", "CH4" = "#2b9eb3", "Alkanes" = "#ef6638", "Alkenes" = "#86c650", "Isoprene" = "#8c1531", "Aromatics" = "#0352cb") `,
 );
 
 $R->run(q` p = ggplot(d, aes(x = Time, y = Mixing.Ratio, fill = VOC, order = VOC)) `,
