@@ -11,12 +11,6 @@ use PDL::NiceSlice;
 
 my $base = "/local/home/coates/New_Tagging";
 my @mechanisms = qw( MOZART-4 );
-my %category_mapping = (
-    MOZART  =>  {   BIGALK  => [ '0.285 NC4H10', '0.151 IC4H10', '0.146 NC5H12', '0.340 IC5H12', '0.048 NC6H14', '0.020 NC7H16', '0.010 NC8H18' ],
-                    BIGENE  => [ '0.333 BUT1ENE', '0.667 MEPROPENE' ],
-                    TOLUENE => [ '0.166 BENZENE', '0.478 TOLUENE_M', '0.073 EBENZ', '0.142 MXYL', '0.069 OXYL', '0.073 PXYL' ],
-                }
-);
 my (%families, %weights, %data);
 
 my $mecca = MECCA->new("$base/MOZART-4_VOC_tagged/boxmodel");
@@ -245,41 +239,26 @@ sub get_data {
         my $production = $rate->sumover * $dt;
         $TOPP{$VOC} = $production(0:13:2) / $emissions{$VOC};
     } 
-
-    #split TOPPs into MCM species
-    my $key;
-    if ($mechanism eq "MOZART-4") {
-        $key = "MOZART";
-    } else {
-        $key = $mechanism;
-    }
-    my %allocated;
-    if (exists $category_mapping{$key}) {
-        foreach my $VOC (sort keys %TOPP) {
-            if (exists $category_mapping{$key}{$VOC}) {
-                foreach my $item (@{$category_mapping{$key}{$VOC}}) {
-                    my ($fraction, $mcm) = split / /, $item;
-                    $allocated{$mcm} = $fraction * $TOPP{$VOC};
-                }
-            } else {
-                $allocated{$VOC} = $TOPP{$VOC};
-            }
-        }
-    }
     
-    #correct allocated TOPPs by carbon number: TOPP actual VOC x real C number / lumped species C number
-    $allocated{"NC4H10"} *= 4 / 5;
-    $allocated{"IC4H10"} *= 4 / 5;
-    $allocated{"NC6H14"} *= 6 / 5;
-    $allocated{"NC7H16"} *= 7 / 5;
-    $allocated{"NC8H18"} *= 8 / 5;
-    $allocated{"BENZENE"} *= 6 / 5;
-    $allocated{"MXYL"} *= 8 / 7;
-    $allocated{"OXYL"} *= 8 / 7;
-    $allocated{"PXYL"} *= 8 / 7;
-    $allocated{"EBENZ"} *= 8 / 7;
-    $allocated{"TOLUENE"} = $allocated{"TOLUENE_M"};
-    delete $allocated{"TOLUENE_M"};
+    #correct TOPPs by carbon number and allocate to MCM species: TOPP actual VOC x real C number / lumped species C number
+    $TOPP{"NC4H10"} = $TOPP{"BIGALK"} * 4 / 5;
+    $TOPP{"IC4H10"} = $TOPP{"BIGALK"} * 4 / 5;
+    $TOPP{"NC5H12"} = $TOPP{"BIGALK"} * 5 / 5;
+    $TOPP{"IC5H12"} = $TOPP{"BIGALK"} * 5 / 5;
+    $TOPP{"NC6H14"} = $TOPP{"BIGALK"} * 6 / 5;
+    $TOPP{"NC7H16"} = $TOPP{"BIGALK"} * 7 / 5;
+    $TOPP{"NC8H18"} = $TOPP{"BIGALK"} * 8 / 5;
+    delete $TOPP{"BIGALK"};
 
-    return \%allocated;
+    $TOPP{"BUT1ENE"} = $TOPP{"BIGENE"};
+    $TOPP{"MEPROPENE"} = $TOPP{"BIGENE"};
+    delete $TOPP{"BIGENE"};
+
+    $TOPP{"BENZENE"} = $TOPP{"TOLUENE"} * 6 / 5;
+    $TOPP{"MXYL"} = $TOPP{"TOLUENE"} * 8 / 7;
+    $TOPP{"OXYL"} = $TOPP{"TOLUENE"} * 8 / 7;
+    $TOPP{"PXYL"} = $TOPP{"TOLUENE"} * 8 / 7;
+    $TOPP{"EBENZ"} = $TOPP{"TOLUENE"} * 8 / 7;
+
+    return \%TOPP;
 }
