@@ -113,59 +113,6 @@ sub get_tagged_species {
     return \@tagged_species;
 }
 
-sub get_VOC {
-    my ($tag) = @_;
-    my $VOC;
-    if ($tag eq "CH4") {
-        $VOC = "Methane";
-    } elsif ($tag eq "C2H6") {
-        $VOC = "Ethane";
-    } elsif ($tag eq "C3H8") {
-        $VOC = "Propane";
-    } elsif ($tag eq "NC4H10") {
-        $VOC = "Butane";
-    } elsif ($tag eq "IC4H10") {
-        $VOC = "2-Methylpropane";
-    } elsif ($tag eq "NC5H12") {
-        $VOC = "Pentane";
-    } elsif ($tag eq "IC5H12") {
-        $VOC = "2-Methylbutane";
-    } elsif ($tag eq "NC6H14") {
-        $VOC = "Hexane";
-    } elsif ($tag eq "NC7H16") {
-        $VOC = "Heptane";
-    } elsif ($tag eq "NC8H18") {
-        $VOC = "Octane";
-    } elsif ($tag eq "C2H4") {
-        $VOC = "Ethene";
-    } elsif ($tag eq "C3H6") {
-        $VOC = "Propene";
-    } elsif ($tag eq "BUT1ENE") {
-        $VOC = "Butene";
-    } elsif ($tag eq "MEPROPENE") {
-        $VOC = "2-Methylpropene";
-    } elsif ($tag eq "ISOP") {
-        $VOC = "Isoprene";
-    } elsif ($tag eq "BENZENE") {
-        $VOC = "Benzene";
-    } elsif ($tag eq "TOLUENE_M") {
-        $VOC = "Toluene";
-    } elsif ($tag eq "MXYL") {
-        $VOC = "m-Xylene";
-    } elsif ($tag eq "OXYL") {
-        $VOC = "o-Xylene";
-    } elsif ($tag eq "PXYL") {
-        $VOC = "p-Xylene";
-    } elsif ($tag eq "EBENZ") {
-        $VOC = "Ethylbenzene";
-    } elsif ($tag eq "INI" or $tag eq "CO" or $tag eq "XTR" or $tag eq "Others") {
-        $VOC = $tag;
-    } else {
-        print "No VOC for $tag\n";
-    }
-    return $VOC;
-}
-
 sub get_data {
     my ($mecca, $kpp, $spc_file, $mechanism) = @_;
 
@@ -239,7 +186,7 @@ sub get_data {
         my $production = $rate->sumover * $dt;
         $TOPP{$VOC} = $production(0:13:2) / $emissions{$VOC};
     } 
-    
+
     #correct TOPPs by carbon number and allocate to MCM species: TOPP actual VOC x real C number / lumped species C number
     $TOPP{"NC4H10"} = $TOPP{"BIGALK"} * 4 / 5;
     $TOPP{"IC4H10"} = $TOPP{"BIGALK"} * 4 / 5;
