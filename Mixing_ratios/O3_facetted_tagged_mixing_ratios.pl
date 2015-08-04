@@ -1,7 +1,6 @@
 #! /usr/bin/env perl
 # Time series of all tagged O3 mixing ratios stacked to give total O3
-# Version 0: Jane Coates 5/6/2015
-# Version 1: Jane Coates 8/6/2015 allocating initial CO and O3 separately and more general grouping of emitted VOC
+# Version 0: Jane Coates 4/8/2015
 
 use strict;
 use diagnostics;
@@ -89,9 +88,9 @@ $R->run(q` d$VOC = factor(d$VOC, levels = c("INI", "XTR", "CO", "CH4", "Alkanes"
         q` my.colours = c("INI" = "#6c254f", "XTR" = "#f9c500", "CO" = "#0e5c28", "CH4" = "#2b9eb3", "Alkanes" = "#ef6638", "Alkenes" = "#86c650", "Isoprene" = "#8c1531", "Aromatics" = "#0352cb") `,
 );
 
-$R->run(q` p = ggplot(d, aes(x = Time, y = Mixing.Ratio, fill = VOC, order = VOC)) `,
-        q` p = p + geom_area(position = "stack") `,
-        q` p = p + geom_area(position = "stack", colour = "black", show_guide = FALSE) `,
+$R->run(q` p = ggplot(d, aes(x = Time, y = Mixing.Ratio)) `,
+        q` p = p + geom_line() `,
+        q` p = p + facet_wrap( ~ VOC, scales = "free") `,
         q` p = p + theme_tufte() `,
         q` p = p + theme(axis.line = element_line(colour = "black")) `,
         q` p = p + theme(legend.title = element_blank()) `,
@@ -100,10 +99,9 @@ $R->run(q` p = ggplot(d, aes(x = Time, y = Mixing.Ratio, fill = VOC, order = VOC
         q` p = p + theme(strip.text = element_text(face = "bold")) `,
         q` p = p + ylab("Mixing Ratio") `,
         q` p = p + xlab("Time (Days)") `,
-        q` p = p + scale_fill_manual(values = my.colours, limits = rev(levels(d$VOC))) `,
 );
 
-$R->run(q` CairoPDF(file = "O3_mixing_ratio_components.pdf", width = 10, height = 7) `,
+$R->run(q` CairoPDF(file = "O3_mixing_ratio_components_faceted_by_VOC.pdf", width = 10, height = 7) `,
         q` print(p) `,
         q` dev.off() `,
 );

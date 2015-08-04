@@ -13,14 +13,14 @@ my $base = "/local/home/coates/New_Tagging";
 my @mechanisms = qw( MOZART-4 );
 my (%families, %weights, %data);
 
-my $mecca = MECCA->new("$base/MOZART-4_VOC_tagged/boxmodel");
+my $mecca = MECCA->new("$base/MOZART-4_tagged_O3/boxmodel");
 my $ntime = $mecca->time->nelem;
 my $dt = $mecca->dt->at(0);
 my $n_per_day = 43200 / $dt;
 my $n_days = int $ntime / $n_per_day;
 
 foreach my $mechanism (@mechanisms) {
-    my $dir = "$base/${mechanism}_VOC_tagged";
+    my $dir = "$base/${mechanism}_tagged_O3";
     my $mecca = MECCA->new("$dir/boxmodel");
     my $kpp = KPP->new("$dir/gas.eqn");
     my $spc_file = "$dir/gas.spc";
@@ -171,12 +171,14 @@ sub get_data {
     foreach my $VOC (sort keys %production_rates) {
         next if ($VOC eq "CO" or $VOC eq "XTR" or $VOC eq "INI" or $VOC eq "CH4");
         my $lookup = $VOC . "_" . $VOC;
-        my $emission_reaction = $kpp->producing_from($VOC, "UNITY");
+        my $emission_reaction = $kpp->producing_from($lookup, "UNITY");
         next if (@$emission_reaction == 0);
-        my $reaction_number = $kpp->reaction_number($emission_reaction->[0]);
-        my $emission_rate = $mecca->rate($reaction_number);
-        $emission_rate = $emission_rate(1:$ntime-2);
-        $emissions{$VOC} = $emission_rate->sum * $dt;
+        foreach my $reaction (@$emission_reaction) {
+            my $reaction_number = $kpp->reaction_number($reaction);
+            my $emission_rate = $mecca->rate($reaction_number);
+            $emission_rate = $emission_rate(1:$ntime-2);
+            $emissions{$VOC} += $emission_rate->sum * $dt;
+        }
     }
 
     my %TOPP; # calculate TOPPs
